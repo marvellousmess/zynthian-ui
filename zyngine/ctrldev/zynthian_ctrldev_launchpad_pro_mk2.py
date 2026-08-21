@@ -555,13 +555,6 @@ class zynthian_ctrldev_launchpad_pro_mk2(zynthian_ctrldev_zynpad, zynthian_ctrld
         
         return False
 
-    def light_off(self):
-        """Clear all pad LEDs"""
-        try:
-            self._feedback.all_off()
-        except Exception:
-            self.send_sysex("14 00")
-
     def sleep_on(self):
         """Put device in sleep mode"""
         self.send_sysex("09 00")
@@ -598,7 +591,7 @@ class zynthian_ctrldev_launchpad_pro_mk2(zynthian_ctrldev_zynpad, zynthian_ctrld
     def end(self):
         super().end()
         zynsigman.unregister(zynsigman.S_GUI, zynsigman.SS_GUI_SHOW_SCREEN, self.on_gui_show_screen)
-        self.light_off()
+        self._feedback.all_off()
         self.send_sysex(MODE_SELECT_STANDALONE_CC) # Exit DAW session mode
         self.send_sysex(STANDALONE_SUB_SELECT_NOTE_CC) # Select Notes/Drum layout, page 0
 
@@ -660,7 +653,7 @@ class zynthian_ctrldev_launchpad_pro_mk2(zynthian_ctrldev_zynpad, zynthian_ctrld
             #self.enable_note_filter()
             sleep(0.05)
             logging.info("Pro MK2: Session mode")
-            self.light_off()
+            self._feedback.all_off()
             self.refresh_pads()            
         elif new_mode == MODE_NOTE:
             # Note/Drum layout
@@ -1103,4 +1096,3 @@ class DeviceHandler(ModeHandlerBase):
         
         self._state_manager.send_cuia(cuia, params)
         return True
-
