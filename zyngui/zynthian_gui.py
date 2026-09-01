@@ -818,9 +818,9 @@ class zynthian_gui:
         except:
             return None
 
-    def show_confirm(self, text, callback=None, cb_params=None):
+    def show_confirm(self, text, callback=None, cb_params=None, autoclose=True):
         self.screen_lock.acquire()
-        self.screens['confirm'].show(text, callback, cb_params)
+        self.screens['confirm'].show(text, callback, cb_params, autoclose)
         self.current_screen = 'confirm'
         self.hide_screens(exclude='confirm')
         self.screen_lock.release()
@@ -991,14 +991,19 @@ class zynthian_gui:
                     chain = self.chain_manager.get_chain(chain_id)
                     old_processor = self.modify_chain_status["processor"]
                     if chain and old_processor:
+                        self.state_manager.start_busy("modify_chain", "Replacing processor")
                         processor = self.chain_manager.add_processor(chain_id, engine, chain.get_slot(old_processor))
                         if processor:
                             self.chain_manager.remove_processor(chain_id, old_processor)
                             chain.rebuild_graph()
                             zynautoconnect.autoconnect()
+                            if processor.type =="MIDI Synth":
+                                chain.init_MPE()
                             self.chain_control(chain_id, processor, force_bank_preset=True, reset=False)
+                        self.state_manager.end_busy("modify_chain")
                 else:
                     # Adding processor to existing chain
+                    self.state_manager.start_busy("modify_chain", "Replacing processor")
                     if "slot" in self.modify_chain_status:
                         slot = self.modify_chain_status["slot"]
                     else:
@@ -1011,11 +1016,12 @@ class zynthian_gui:
                         #self.show_screen_reset("root")
                         self.chain_control(chain_id)
                         self.show_info("Failed to create processor", 1500)
+                    self.state_manager.end_busy("modify_chain")
             else:
                 # Creating a new chain
                 if "midi_chan" in self.modify_chain_status:
                     # We know the MIDI channel so create a new chain and processor
-                    self.state_manager.start_busy("modify_chain", "Creating New Chain")
+                    self.state_manager.start_busy("modify_chain", "Creating new chain")
                     if "midi_thru" not in self.modify_chain_status:
                         self.modify_chain_status["midi_thru"] = False
                     if "audio_thru" not in self.modify_chain_status:
@@ -1038,12 +1044,13 @@ class zynthian_gui:
                         self.modify_chain_status["audio_thru"],
                         zmop_index,
                         chain_pos=pos,
-                        fast_refresh=False
+                        fast_refresh=True
                     )
                     if chain_id is None:
                         self.show_screen_reset("root")
                         self.show_info("Failed to create chain", 1500)
                         return
+                    chain = self.chain_manager.get_chain(chain_id)
                     processor = self.chain_manager.add_processor(chain_id, self.modify_chain_status["engine"])
                     if self.chain_manager.chains[chain_id].synth_slots or self.modify_chain_status["audio_thru"]:
                         if self.modify_chain_status["mixbus"]:
@@ -1054,6 +1061,8 @@ class zynthian_gui:
                     self.chain_manager.rebuild_optimisation_cache()
                     zynautoconnect.request_audio_connect(True)
                     zynautoconnect.request_midi_connect(True)
+                    if processor and processor.type =="MIDI Synth":
+                        chain.init_MPE()
                     self.state_manager.end_busy("modify_chain")
                     self.screen_history = []
                     if processor:
@@ -1404,14 +1413,14 @@ class zynthian_gui:
 
     def cuia_audio_file_list(self, params=None):
         self.show_screen("audio_player")
-        #return
+        return
+        # Don't ask for a file each time we open the Audio Player
         self.replace_screen('bank')
         n_banks = len(self.state_manager.audio_player.bank_list)
         if n_banks == 1 or self.state_manager.audio_player.bank_name:
             self.screens['bank'].click_listbox()
         elif n_banks == 0:
             self.close_screen()
-            #self.close_screen()
 
     def cuia_start_midi_record(self, params=None):
         self.state_manager.start_midi_record()
@@ -1823,10 +1832,10 @@ class zynthian_gui:
                 self.state_manager.load_zs3(params[0])
 
     def cuia_zs3_next(self, params=None):
-        self.state_manager.load_next_zs3()
+        self.state_manager.load_next_zs3(params)
 
     def cuia_zs3_prev(self, params=None):
-        self.state_manager.load_prev_zs3()
+        self.state_manager.load_prev_zs3(params)
 
     # -------------------------------------------------------------------
     # MIDI Learn CUIAS:

@@ -51,7 +51,9 @@ function rotate_display() {
 	if [[ -n "$WAYLAND_DISPLAY" ]]; then
 		wlr-randr --output DSI-1 --transform 180
 	else
-		xrandr --output DSI-1 --rotate inverted
+		display_name=$(xrandr --query | grep -oP '^\S+(?= connected)')
+		echo "Rotating Display $display_name ..."
+		xrandr --output $display_name --rotate inverted
 	fi
 }
 
@@ -72,7 +74,8 @@ function hide_cursor() {
 load_config_env
 
 # Rotate display
-if [[ "$RBPI_VERSION_NUMBER" = "5" &&  "$DISPLAY_ROTATION" = "Inverted" && "$DISPLAY_NAME" = *"DSI"* ]]; then
+#if [[ "$RBPI_VERSION_NUMBER" == "5" &&  "$DISPLAY_ROTATION" == "Inverted" && "$DISPLAY_NAME" == *"DSI"* ]]; then
+if [[ "$RBPI_VERSION_NUMBER" == "5" &&  "$DISPLAY_ROTATION" == "Inverted" ]]; then
 	rotate_display
 fi
 
@@ -80,6 +83,10 @@ fi
 if [[ "$ZYNTHIAN_UI_ENABLE_CURSOR" != "1" ]]; then
 	hide_cursor
 fi
+
+# This will unleash the MESA library refresh so it's not
+# synced to the display vertical refresh
+#export vblank_mode=0
 
 #------------------------------------------------------------------------------
 # Functions to manage splash images
